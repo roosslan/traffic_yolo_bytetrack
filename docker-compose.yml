@@ -1,0 +1,29 @@
+# ClickHouse для разработки: docker compose up -d
+# Пароль берётся из файла .env (образец: .env.example), в этот файл его писать не нужно.
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest  # для постоянной установки закрепите конкретную версию
+    container_name: traffic_clickhouse
+    restart: unless-stopped
+    # Порты открыты на всех сетевых интерфейсах, чтобы к базе можно было подключиться по IP
+    # машины (например 192.168.1.20) и с других компьютеров сети. Доступ закрыт паролем из .env.
+    # Только для этой машины: CLICKHOUSE_BIND=127.0.0.1 в .env.
+    ports:
+      - "${CLICKHOUSE_BIND:-0.0.0.0}:8124:8123"  # HTTP: им пользуется traffic_yolo_bytetrack
+      - "${CLICKHOUSE_BIND:-0.0.0.0}:9001:9000"  # нативный протокол: для clickhouse-client
+    environment:
+      CLICKHOUSE_DB: traffic
+      CLICKHOUSE_USER: traffic
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?задайте CLICKHOUSE_PASSWORD в файле .env}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
